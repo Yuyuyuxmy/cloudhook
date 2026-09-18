@@ -81,4 +81,6 @@ scripts/            # dev/mock/冒烟脚本
 
 ### 6. 部署
 
-Cloudflare Pages 连接 Git 仓库，构建命令 `npm run build`，输出目录 `public`，函数目录 `functions`（自动识别，见 `wrangler.toml`）。必需环境变量：`HMAC_SECRET`（签名）、`ENCRYPTION_KEY`（Bark Key 加密存储）、`MASTER_PASSWORD_HASH` 或 `MASTER_PASSWORD`（登录）。KV 命名空间绑定变量名须为 `KV` 或 `cloudhook_kv`。详见 `docs/SETUP.md`。
+Cloudflare Pages 连接 Git 仓库，构建命令 `npm run build`，输出目录 `public`，函数目录 `functions`（自动识别）。必需环境变量：`HMAC_SECRET`（签名）、`ENCRYPTION_KEY`（Bark Key 加密存储）、`MASTER_PASSWORD_HASH` 或 `MASTER_PASSWORD`（登录）。KV 命名空间绑定变量名须为 `KV` 或 `cloudhook_kv`；绑定后须重新部署才生效。详见 `docs/SETUP.md`。
+
+**不要在仓库中添加 `wrangler.toml`**：Cloudflare 会将其视为唯一事实来源，仪表板里的环境变量与 KV 绑定随即变为只读并被文件覆盖，导致 `resolveKv` 拿不到绑定、管理端点 fail-closed 返回 503。

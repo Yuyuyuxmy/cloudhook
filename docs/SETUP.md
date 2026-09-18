@@ -17,6 +17,8 @@
 1. Dashboard → **存储和数据库** → **KV** → 创建命名空间 `cloudhook-prod`
 2. Pages 项目 → **Settings** → **Bindings** → 添加 KV 绑定：变量名 `KV`，选择 `cloudhook-prod`
 
+> 绑定后必须重新部署才生效（Deployments → 最新一条 → Retry deployment）。
+
 ## 3. 配置环境变量
 
 | 变量 | 说明 | 生成方式 |
@@ -26,6 +28,10 @@
 | `MASTER_PASSWORD_HASH` | 登录密码哈希（推荐） | `echo -n 'pwd' \| openssl dgst -sha256` |
 
 > 也可直接设置 `MASTER_PASSWORD` 明文（不推荐）。
+
+在 Pages 项目 → **Settings** → **Variables and Secrets** 添加，三项都建议选「机密 / Secret」类型，并确认加在 **Production** 环境（只加到 Preview 的话正式域名读不到）。
+
+> 仓库刻意不放 `wrangler.toml`：一旦存在该文件，Cloudflare 会以它为唯一事实来源，仪表板中的环境变量与 KV 绑定将变为只读且被文件覆盖。所有配置统一在仪表板管理。
 
 ## 4. 部署与初始化
 
