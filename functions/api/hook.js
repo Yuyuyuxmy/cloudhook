@@ -139,7 +139,10 @@ export function parseEvent(rawEvent, eventName) {
   if (command) parsed.summary = parsed.tool_name + ': ' + command.slice(0, 120);
   else if (filePath) parsed.summary = parsed.tool_name + ': ' + filePath;
   else if (url) parsed.summary = parsed.tool_name + ': ' + url;
-  else parsed.summary = parsed.tool_name || 'Unknown';
+  // Notification 事件的 payload 只有 title/message，无 tool_name/tool_input：
+  // 关键词命中时会归类为 permission_required，落到 'Unknown' 会让通知正文
+  // 显示「操作：Unknown」，故改用消息文本兜底
+  else parsed.summary = parsed.tool_name || rawEvent.message || rawEvent.title || 'Unknown';
 
   var errorKeywords = ['error', 'failed', 'exception', 'traceback', 'exit code'];
   parsed.has_error = errorKeywords.some(function(kw) { return parsed.text_lower.includes(kw); });
