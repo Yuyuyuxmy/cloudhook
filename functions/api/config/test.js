@@ -2,7 +2,7 @@
  * CloudHook - Bark 推送测试 API
  * POST /api/config/test - 用当前配置发一条测试通知到 Bark
  *
- * 注意：EdgeOne Pages 的函数路由按文件路径匹配，子路径 /api/config/test
+ * 注意：Cloudflare Pages Functions 路由按文件路径匹配，子路径 /api/config/test
  * 必须有独立文件 config/test.js，不能塞进 config.js（后者只匹配 /api/config）。
  */
 
@@ -32,7 +32,7 @@ function maskBarkKey(key) {
 // ============================================================================
 //
 // 除鉴权失败外一律返回 HTTP 200，用 body 的 success 表达结果。
-// 原因：EdgeOne 对 5xx 响应会用自己的错误页（HTML）覆盖函数返回的 JSON，
+// 历史原因：EdgeOne 对 5xx 响应会覆盖 JSON；Cloudflare 无此问题，但保持约定不变以兼容前端。
 // 导致前端拿不到 message/diagnostics，只能显示"未知错误"。返回 200 可规避。
 
 export async function onRequestPost(context) {

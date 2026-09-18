@@ -1,9 +1,9 @@
 # CloudHook
 
-Claude Code 云端监控通知系统。基于 EdgeOne Pages 部署，通过 [HTTP Hook](https://code.claude.com/docs/zh-CN/hooks) 接收 Claude Code 事件，实时推送 Bark 通知到 iPhone / Apple Watch。
+Claude Code 云端监控通知系统。基于 Cloudflare Pages 部署，通过 [HTTP Hook](https://code.claude.com/docs/zh-CN/hooks) 接收 Claude Code 事件，实时推送 Bark 通知到 iPhone / Apple Watch。
 
 ```
-Claude Code  →  HTTP Hook  →  EdgeOne Functions  →  Bark  →  iPhone / Watch
+Claude Code  →  HTTP Hook  →  Cloudflare Pages Functions  →  Bark  →  iPhone / Watch
 ```
 
 ## 功能
@@ -14,7 +14,7 @@ Claude Code  →  HTTP Hook  →  EdgeOne Functions  →  Bark  →  iPhone / Wa
 - **风险控制** — IP 黑白名单、地理位置限制、速率限制（100 次/分钟）
 - **Web 管理界面** — 配置、事件流、Token 管理、访问日志，React SPA 一站式操作
 - **多设备支持** — 每台设备独立 Token，可单独撤销
-- **免费运行** — EdgeOne Pages 免费额度完全够用
+- **免费运行** — Cloudflare Pages 免费额度完全够用
 
 ## 快速开始
 
@@ -22,8 +22,8 @@ Claude Code  →  HTTP Hook  →  EdgeOne Functions  →  Bark  →  iPhone / Wa
 
 详细步骤见 [部署指南](docs/SETUP.md)，简要流程：
 
-1. EdgeOne Pages 创建项目，连接 Git 仓库，输出目录 `public`
-2. 创建 KV 命名空间，绑定变量名 `KV`
+1. Cloudflare Dashboard → Workers & Pages 创建 Pages 项目，连接 Git 仓库，构建命令 `npm run build`，输出目录 `public`
+2. 创建 KV 命名空间，在项目设置中绑定，变量名 `KV`
 3. 配置环境变量：
 
 | 变量 | 说明 | 生成 |
@@ -81,7 +81,7 @@ Claude Code  →  HTTP Hook  →  EdgeOne Functions  →  Bark  →  iPhone / Wa
 
 ```
 cloudhook/
-├── edge-functions/            # 边缘函数
+├── functions/                 # Cloudflare Pages Functions
 │   ├── _shared.js             # 核心模块（安全、分类、风险、Bark、KV）
 │   ├── _middleware.js          # 全局中间件
 │   └── api/
@@ -123,7 +123,7 @@ npm run dev
 
 ## 技术栈
 
-**后端** — EdgeOne Pages Functions（Cloudflare Workers 兼容）、EdgeOne KV、Web Crypto API
+**后端** — Cloudflare Pages Functions、Cloudflare KV、Web Crypto API
 
 **前端** — React 19、Vite 8、React Router 7、Zustand、Tailwind CSS
 

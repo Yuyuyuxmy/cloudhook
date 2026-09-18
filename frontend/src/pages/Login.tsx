@@ -111,7 +111,7 @@ export default function Login() {
             <div className="mb-6 flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
               <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-amber-800 leading-relaxed tracking-wide">
-                服务端尚未配置 MASTER_PASSWORD，请先在 EdgeOne 控制台设置环境变量后重新部署
+                服务端尚未配置 MASTER_PASSWORD，请先在 Cloudflare Pages 项目设置中配置环境变量后重新部署
               </p>
             </div>
           ) : null}

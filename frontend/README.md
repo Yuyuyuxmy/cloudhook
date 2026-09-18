@@ -193,9 +193,9 @@ git commit -m "build: update frontend"
 git push
 ```
 
-### EdgeOne 自动部署
+### Cloudflare Pages 自动部署
 
-Push 到 Git 后，EdgeOne Pages 会自动检测并部署。
+Push 到 Git 后，Cloudflare Pages 会自动检测并部署。
 
 ## 常见问题
 

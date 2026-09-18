@@ -14,7 +14,7 @@
  * 9. 兜底：空对象 payload 且无头无 UA → unknown/fallback，标题「其他智能体 提醒」
  * 10. 零回归：classify 不传 agentId、buildMessage 不传 agentName，行为与旧版本一致
  * 11. getDefaultConfig().agents 五来源默认开启；静音判断表达式三态验证
- * 12. lib/agent-detect.js 与 edge-functions/_shared.js 的 detectAgent 双份一致性
+ * 12. lib/agent-detect.js 与 functions/_shared.js 的 detectAgent 双份一致性
  *     （含 Kimi payload）
  * 13. Kimi Code PermissionRequest：client_type 一锤定音识别（带 turn_id，防 codex
  *     判据误判回归）+ 分类
@@ -27,8 +27,8 @@
  * 运行：node scripts/test-agent-detect.mjs
  */
 
-import * as sharedEdge from '../edge-functions/_shared.js';
-import { parseEvent, inferAgEventName } from '../edge-functions/api/hook.js';
+import * as sharedEdge from '../functions/_shared.js';
+import { parseEvent, inferAgEventName } from '../functions/api/hook.js';
 import { detectAgent as detectAgentLib } from '../lib/agent-detect.js';
 
 const results = [];

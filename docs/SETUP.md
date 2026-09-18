@@ -2,20 +2,20 @@
 
 ## 前置条件
 
-- 腾讯云账号
+- Cloudflare 账号
 - Git 仓库（GitHub/GitLab）
 - 手机安装 Bark App
 
-## 1. 创建 EdgeOne Pages 项目
+## 1. 创建 Cloudflare Pages 项目
 
-1. 登录腾讯云控制台 → **EdgeOne Pages** → **创建项目**
-2. 从 Git 导入 `cloudhook` 仓库
-3. 框架：**无**，构建命令：留空，输出目录：`public`
+1. 登录 Cloudflare Dashboard → **Workers & Pages** → **创建** → **Pages** → 连接 Git
+2. 选择 `cloudhook` 仓库
+3. 框架预设：**无**，构建命令：`npm run build`，输出目录：`public`（`functions/` 目录会被自动识别为 Pages Functions）
 
 ## 2. 创建 KV 命名空间并绑定
 
-1. **EdgeOne** → **存储** → **KV** → 创建命名空间 `cloudhook-prod`
-2. 在项目设置中添加 KV 绑定：变量名 `KV`，选择 `cloudhook-prod`
+1. Dashboard → **存储和数据库** → **KV** → 创建命名空间 `cloudhook-prod`
+2. Pages 项目 → **Settings** → **Bindings** → 添加 KV 绑定：变量名 `KV`，选择 `cloudhook-prod`
 
 ## 3. 配置环境变量
 
@@ -89,11 +89,11 @@
 
 ## KV 一致性说明
 
-EdgeOne KV 为最终一致性存储（1-30 秒延迟）。Token 验证（无状态签名）和登录不受影响。配置更新后建议等待 1 分钟再验证。
+Cloudflare KV 为最终一致性存储（跨节点最长约 60 秒延迟）。Token 验证（无状态签名）和登录不受影响。配置更新后建议等待 1 分钟再验证。
 
 ## 成本
 
-EdgeOne Pages 免费额度足够个人使用，单用户月用量 < 0.1%。
+Cloudflare Pages 免费额度足够个人使用（Functions 免费版 10 万请求/天），单用户月用量 < 0.1%。
 
 ## 支持
 

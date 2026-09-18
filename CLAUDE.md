@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-CloudHook — Claude Code 云端监控通知系统。EdgeOne Pages 全栈部署：边缘函数接收 Claude Code 的 HTTP Hook 事件，分类/评级后经 Bark 推送到 iPhone / Apple Watch，附带 React SPA 管理界面。单用户系统（userId 固定 `'default'`）。
+CloudHook — Claude Code 云端监控通知系统。Cloudflare Pages 全栈部署：Pages Functions 接收 Claude Code 的 HTTP Hook 事件，分类/评级后经 Bark 推送到 iPhone / Apple Watch，附带 React SPA 管理界面。单用户系统（userId 固定 `'default'`）。
 
 ## 常用命令
 
 ```bash
 npm run dev          # 一键本地开发：Mock API(:8787) + Vite(:3000)，自动清理占用端口
 npm run mock         # 仅启动 Mock API 服务器（scripts/dev-mock.mjs）
-npm run build        # 构建前端到 public/（即 EdgeOne 部署的产物目录）
+npm run build        # 构建前端到 public/（即 Cloudflare Pages 部署的产物目录）
 cd frontend && npm run lint   # ESLint
 ```
 
@@ -24,17 +24,17 @@ cd frontend && npm run lint   # ESLint
 ### 1. 共享代码双份维护（最重要的坑）
 
 - `lib/*.js` — 本地 Mock 服务器（`scripts/dev-mock.mjs`）import 的源模块
-- `edge-functions/_shared.js` — 部署用的**自包含打包版**，因为 EdgeOne 运行时无法解析 `edge-functions/` 目录之外的 import
+- `functions/_shared.js` — 部署用的**自包含打包版**，避免对 `functions/` 目录外模块的运行时依赖
 - **修改 `lib/` 中任何共享逻辑，必须同步改 `_shared.js` 对应段落**（security / kv-store / risk / bark / classifier / message-builder 六段），否则本地与线上行为不一致
 
-### 2. EdgeOne 平台约束（代码中大量 workaround 的根源）
+### 2. 平台约束与历史遗留（原 EdgeOne 时代的 workaround，现部署于 Cloudflare Pages）
 
-- **KV 绑定是全局变量注入**（如 `cloudhook_kv`），不是 `env.KV`；一律通过 `resolveKv(env)` 获取（探测 globalThis 候选名再查 env）
-- **KV key 只允许字母/数字/下划线**（不能含冒号等），所有 key 用 `user_{uid}_xxx` 格式
-- **5xx 会被平台 HTML 错误页覆盖**导致诊断信息丢失 → API 一律返回 HTTP 200，用 `body.success` 表达结果
-- **WAF 拦截源码中的字面量 `PermissionRequest`**（会 545）→ 边缘函数用 `String.fromCharCode` 动态构建；**前端源码里 `'A'+'B'` 拼接和 `fromCharCode(常量)` 都会被 rolldown/oxc 压缩器常量折叠回连写字面量进构建产物**，前端只能用 `atob('UGVybWlzc2lvblJlcXVlc3Q=')` 这类环境全局函数构建（压缩器不求值），改完必须 grep `public/assets/` 确认产物无连写
-- `console.log` 上限 20 次/执行
+- **KV 绑定通过 `env` 注入**（Cloudflare 方式，变量名 `KV` 或 `cloudhook_kv`）；一律通过 `resolveKv(env)` 获取（env 优先，globalThis 候选名兜底以兼容旧运行时）
+- **KV key 只用字母/数字/下划线**（原 EdgeOne 限制，Cloudflare 无此限制，但保持格式以兼容已有数据），所有 key 用 `user_{uid}_xxx` 格式
+- **API 一律返回 HTTP 200，用 `body.success` 表达结果**（原 EdgeOne 5xx 被 HTML 错误页覆盖的 workaround；前端依赖此约定，勿改）
+- **`PermissionRequest` 字面量在后端用 `String.fromCharCode` 构建、前端用 `atob('UGVybWlzc2lvblJlcXVlc3Q=')` 构建**——原 EdgeOne WAF 绕过写法，Cloudflare 无此限制但无害保留，两份实现便于逐行 diff 对照
 - `context.waitUntil` 行为有运行时差异 → 用 `safeWaitUntil()` 封装
+- 客户端 IP 取 `CF-Connecting-IP` 头；地理信息取 `request.cf`（country/regionCode/region），兜底 `CF-IPCountry` 头（见 `getClientIp` / `getRequestLocation`）
 
 ### 3. 认证与设备模型
 
@@ -66,7 +66,7 @@ cd frontend && npm run lint   # ESLint
 ### 5. 目录结构
 
 ```
-edge-functions/     # 后端（Cloudflare Workers 风格，onRequest{Get,Post,...} 导出）
+functions/          # 后端（Cloudflare Pages Functions，onRequest{Get,Post,...} 导出）
   _middleware.js    # 全局 CORS/安全头/错误兜底
   _shared.js        # 自包含共享模块（见约束 1）
   api/hook.js       # 主 Webhook（notify.js 是备用别名）
@@ -75,10 +75,10 @@ edge-functions/     # 后端（Cloudflare Workers 风格，onRequest{Get,Post,..
   api/events.js, api/access-logs.js   # 日志查询与删除
 lib/                # 共享模块源码（本地 mock 用）
 frontend/           # React 19 + Vite 8 + Zustand + Tailwind，构建到 public/
-public/             # 构建产物 = EdgeOne 输出目录（勿手改）
+public/             # 构建产物 = Cloudflare Pages 输出目录（勿手改）
 scripts/            # dev/mock/冒烟脚本
 ```
 
 ### 6. 部署
 
-EdgeOne Pages 连接 Git 仓库，输出目录 `public`，函数目录 `edge-functions`（见 `edgeone.json`）。必需环境变量：`HMAC_SECRET`（签名）、`ENCRYPTION_KEY`（Bark Key 加密存储）、`MASTER_PASSWORD_HASH` 或 `MASTER_PASSWORD`（登录）。KV 命名空间绑定变量名须为 `cloudhook_kv` 或 `KV`。详见 `docs/SETUP.md`。
+Cloudflare Pages 连接 Git 仓库，构建命令 `npm run build`，输出目录 `public`，函数目录 `functions`（自动识别，见 `wrangler.toml`）。必需环境变量：`HMAC_SECRET`（签名）、`ENCRYPTION_KEY`（Bark Key 加密存储）、`MASTER_PASSWORD_HASH` 或 `MASTER_PASSWORD`（登录）。KV 命名空间绑定变量名须为 `KV` 或 `cloudhook_kv`。详见 `docs/SETUP.md`。

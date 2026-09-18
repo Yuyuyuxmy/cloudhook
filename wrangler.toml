@@ -1,0 +1,17 @@
+# Cloudflare Pages 配置
+# 部署方式一（Git 集成）：Cloudflare Dashboard → Workers & Pages → 连接仓库
+#   构建命令: npm run build    输出目录: public    函数目录: functions（自动识别）
+# 部署方式二（CLI）：npm run build && npx wrangler pages deploy public
+#
+# 必需绑定（Dashboard → 项目 → Settings）：
+#   KV 命名空间绑定：变量名 KV（或 cloudhook_kv）
+#   环境变量/Secret：HMAC_SECRET、ENCRYPTION_KEY、MASTER_PASSWORD_HASH（或 MASTER_PASSWORD）
+
+name = "cloudhook"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "public"
+
+# 本地 wrangler pages dev 时的 KV 绑定示例（生产环境请在 Dashboard 配置真实 namespace id）
+# [[kv_namespaces]]
+# binding = "KV"
+# id = "<your-kv-namespace-id>"

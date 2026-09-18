@@ -12,11 +12,11 @@
  * 运行：node scripts/test-device-identity.mjs
  */
 
-import * as sharedEdge from '../edge-functions/_shared.js';
+import * as sharedEdge from '../functions/_shared.js';
 import * as secLib from '../lib/security.js';
 import * as kvLib from '../lib/kv-store.js';
-import { onRequestPost as loginPost } from '../edge-functions/api/token.js';
-import { onRequestPost as hookPost } from '../edge-functions/api/hook.js';
+import { onRequestPost as loginPost } from '../functions/api/token.js';
+import { onRequestPost as hookPost } from '../functions/api/hook.js';
 
 const results = [];
 function check(name, cond, detail = '') {

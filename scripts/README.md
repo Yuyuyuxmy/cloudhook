@@ -8,7 +8,7 @@
 **本地 Mock API 服务器**
 
 - **端口**：8787
-- **功能**：模拟所有后端 API，无需 EdgeOne Pages 和 KV 存储
+- **功能**：模拟所有后端 API，无需 Cloudflare Pages 和 KV 存储
 - **启动**：
   ```bash
   node scripts/dev-mock.mjs

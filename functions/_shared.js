@@ -1,11 +1,11 @@
 /**
  * CloudHook - 边缘函数共享模块（自包含版）
  *
- * ⚠️ EdgeOne Pages 部署时 edge-functions/ 目录外的模块（../../lib/*.js）可能
- *    无法在运行时被 import 解析。此文件将所有 lib/ 中的共享代码打包在一起，
- *    供 edge-functions/ 内的其他 API 文件使用同目录 import 引用。
+ * ⚠️ 与 lib/*.js 双份维护：此文件将所有 lib/ 中的共享代码打包在一起，
+ *    供 functions/ 内的其他 API 文件使用同目录 import 引用，
+ *    避免对 functions/ 目录外模块（../../lib/*.js）的运行时依赖。
  *
- * 用法（在 edge-functions/api/*.js 中）:
+ * 用法（在 functions/api/*.js 中）:
  *   import { verifyAuthToken, resolveKv, ... } from '../_shared.js';
  *   import { verifyAuthToken } from '../../_shared.js';  // 子目录
  */
@@ -222,13 +222,15 @@ const KV_BINDING_NAMES = ['cloudhook_kv', 'KV', 'kv', 'my_kv'];
 
 export function resolveKv(env) {
   const isKv = (obj) => obj && typeof obj.get === 'function' && typeof obj.put === 'function';
-  for (const name of KV_BINDING_NAMES) {
-    try { if (isKv(globalThis[name])) return globalThis[name]; } catch { /* strict mode */ }
-  }
+  // Cloudflare Pages Functions：KV 绑定注入 env
   if (env) {
     for (const name of KV_BINDING_NAMES) {
       if (isKv(env[name])) return env[name];
     }
+  }
+  // 兼容旧运行时（EdgeOne 以全局变量注入）
+  for (const name of KV_BINDING_NAMES) {
+    try { if (isKv(globalThis[name])) return globalThis[name]; } catch { /* strict mode */ }
   }
   return null;
 }
@@ -378,7 +380,8 @@ export async function removeDevice(kv, uid, jti) {
 }
 
 /**
- * 吊销名单 KV key。EdgeOne KV key 仅允许字母/数字/下划线：
+ * 吊销名单 KV key。KV key 统一只用字母/数字/下划线（历史上为兼容 EdgeOne KV 的限制，
+ * Cloudflare KV 无此限制但保持格式不变以兼容已有数据）：
  * jti 是带连字符的 UUID，统一剥离非法字符，写入与读取共用此函数保证一致。
  * （旧的带连字符 key 成为孤儿，随 TTL 自然过期，无需迁移）
  */
@@ -529,8 +532,7 @@ export async function clearPendingAction(kv, userId, actionId) {
 
 export function getClientIp(request) {
   try {
-    if (request?.eo?.clientIp) return String(request.eo.clientIp).trim();
-    const directIp = request.headers.get('EO-Client-IP') || request.headers.get('EO-Connecting-IP')
+    const directIp = request.headers.get('CF-Connecting-IP')
       || request.headers.get('X-Real-IP') || request.headers.get('X-Client-IP');
     if (directIp) return directIp.trim();
     const forwardedFor = request.headers.get('X-Forwarded-For');
@@ -550,12 +552,13 @@ function _normalizeLocVal(value, uppercase) {
 
 export function getRequestLocation(request) {
   try {
-    const geo = request?.eo?.geo ?? {};
+    // Cloudflare 在 request.cf 注入地理信息，另有 CF-IPCountry 请求头兜底
+    const cf = request?.cf ?? {};
     return {
-      countryCode: _normalizeLocVal(geo.countryCodeAlpha2, true) || _normalizeLocVal(request.headers.get('EO-Country-Code'), true) || _normalizeLocVal(request.headers.get('X-Geo-Country'), true),
-      countryName: _normalizeLocVal(geo.countryName, false) || _normalizeLocVal(request.headers.get('EO-Country-Name'), false),
-      regionCode: _normalizeLocVal(geo.regionCode, true) || _normalizeLocVal(request.headers.get('EO-Region-Code'), true) || _normalizeLocVal(request.headers.get('X-Geo-Region'), true),
-      regionName: _normalizeLocVal(geo.regionName, false) || _normalizeLocVal(request.headers.get('EO-Region-Name'), false)
+      countryCode: _normalizeLocVal(cf.country, true) || _normalizeLocVal(request.headers.get('CF-IPCountry'), true) || _normalizeLocVal(request.headers.get('X-Geo-Country'), true),
+      countryName: _normalizeLocVal(cf.country, false),
+      regionCode: _normalizeLocVal(cf.regionCode, true) || _normalizeLocVal(request.headers.get('X-Geo-Region'), true),
+      regionName: _normalizeLocVal(cf.region, false)
     };
   } catch {
     return { countryCode: null, countryName: null, regionCode: null, regionName: null };
@@ -764,7 +767,8 @@ const PERM_KW_EN = ['permission','permissions','allow','approve','approval','con
   'needs your attention','waiting for input','waiting for user','requires user','user action required','permission_prompt'];
 const PERM_KW_ZH = ['权限','允许','批准','确认','等待用户','需要你','需要用户','需要操作','是否继续','请确认'];
 
-// EdgeOne WAF 绕过：动态构建 'PermissionRequest'（WAF 拦截此字符串字面量）
+// 'PermissionRequest' 事件名（历史上因 EdgeOne WAF 拦截字面量而用 fromCharCode 构建，
+// Cloudflare 无此限制，保留写法以与 lib/classifier.js 逐行对照）
 var _PERM_EVT = String.fromCharCode(80,101,114,109,105,115,115,105,111,110,82,101,113,117,101,115,116);
 
 export function classify(parsed, agentId) {

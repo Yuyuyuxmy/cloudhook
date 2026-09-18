@@ -2,7 +2,7 @@
 
 ## 🎯 概述
 
-本地开发环境提供完整的前后端 Mock 服务，无需部署到 EdgeOne Pages 即可进行功能开发和测试。
+本地开发环境提供完整的前后端 Mock 服务，无需部署到 Cloudflare Pages 即可进行功能开发和测试。
 
 ---
 
@@ -152,7 +152,7 @@ node scripts/test-dev-auth.mjs
 
 ## 📋 Mock API 功能
 
-Mock 服务器提供完整的后端 API 模拟，无需 EdgeOne Pages 和 KV 存储。
+Mock 服务器提供完整的后端 API 模拟，无需 Cloudflare Pages 和 KV 存储。
 
 ### 支持的端点
 
@@ -272,8 +272,8 @@ proxy: {
 | 配置项 | 本地开发 | 生产环境 |
 |--------|---------|----------|
 | **密码配置** | `DEV_PASSWORD_HASH` / `DEV_PASSWORD` | `MASTER_PASSWORD_HASH` / `MASTER_PASSWORD` |
-| **配置文件** | `frontend/.env.local` | EdgeOne Pages 环境变量 |
-| **后端** | Mock API (Node.js) | EdgeOne Pages Functions |
+| **配置文件** | `frontend/.env.local` | Cloudflare Pages 环境变量 |
+| **后端** | Mock API (Node.js) | Cloudflare Pages Functions |
 | **存储** | 内存（重启丢失） | KV 存储（持久化） |
 | **Token 签名** | 固定 Mock Token | `HMAC_SECRET` 签名 |
 | **认证流程** | ✅ 完全一致 | ✅ 完全一致 |
@@ -288,7 +288,7 @@ proxy: {
 
 ## 🚀 部署到生产
 
-开发完成后，部署到 EdgeOne Pages：
+开发完成后，部署到 Cloudflare Pages：
 
 ### 1. 构建前端
 
@@ -301,7 +301,7 @@ npm run build
 
 ### 2. 配置环境变量
 
-在 EdgeOne Pages 控制台设置：
+在 Cloudflare Pages 项目设置中配置：
 
 ```env
 MASTER_PASSWORD_HASH=your_production_password_hash
@@ -318,7 +318,7 @@ git commit -m "feat: 更新功能"
 git push
 ```
 
-EdgeOne Pages 会自动触发部署。
+Cloudflare Pages 会自动触发部署。
 
 ---
 

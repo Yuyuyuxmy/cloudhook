@@ -80,14 +80,14 @@ export async function onRequestPost(context) {
     if (!env.MASTER_PASSWORD && !env.MASTER_PASSWORD_HASH) {
       return jsonResponse({
         error: 'Not configured',
-        message: 'Server is missing MASTER_PASSWORD. Set it in the EdgeOne console environment variables.'
+        message: 'Server is missing MASTER_PASSWORD. Set it in the Cloudflare Pages project settings (environment variables).'
       }, 503);
     }
 
     if (!env.HMAC_SECRET) {
       return jsonResponse({
         error: 'Not configured',
-        message: 'Server is missing HMAC_SECRET. Set it in the EdgeOne console environment variables.'
+        message: 'Server is missing HMAC_SECRET. Set it in the Cloudflare Pages project settings (environment variables).'
       }, 503);
     }
 
@@ -174,7 +174,7 @@ export async function onRequestPost(context) {
       last_ip: clientIp,
       last_seen: nowIso
     });
-    // 安全调用 waitUntil —— EdgeOne 运行时应支持，但防御运行时差异
+    // 安全调用 waitUntil —— Cloudflare 运行时支持，仍防御运行时差异
     if (typeof context.waitUntil === 'function') {
       try { context.waitUntil(devicePromise); } catch { devicePromise.catch(() => {}); }
     } else {

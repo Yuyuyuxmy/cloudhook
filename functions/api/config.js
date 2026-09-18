@@ -171,7 +171,7 @@ export async function onRequestPut(context) {
 // ============================================================================
 //
 // 注意：测试推送端点已迁出到 config/test.js（对应 /api/config/test）。
-// EdgeOne Pages 路由按文件路径匹配，config.js 仅响应 /api/config，
+// Cloudflare Pages Functions 路由按文件路径匹配，config.js 仅响应 /api/config，
 // 子路径 /api/config/test 必须由独立文件处理，否则会落到 SPA fallback 返回 HTML。
 
 export async function onRequestOptions() {

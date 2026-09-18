@@ -1,12 +1,13 @@
 {
   "name": "cloudhook",
   "version": "1.0.0",
-  "description": "CloudHook - AI Agent 云端监控哨兵，EdgeOne Pages 驱动",
+  "description": "CloudHook - AI Agent 云端监控哨兵，Cloudflare Pages 驱动",
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "mock": "node scripts/dev-mock.mjs",
     "build": "cd frontend && npm install && npm run build",
+    "deploy": "npm run build && npx wrangler pages deploy public",
     "preview": "cd frontend && npm run preview",
     "install:frontend": "cd frontend && npm install",
     "test": "echo 'Tests not yet configured'"
@@ -15,7 +16,7 @@
     "cloudhook",
     "agentwatch",
     "claude-code",
-    "edgeone",
+    "cloudflare",
     "webhook",
     "bark",
     "notification",
