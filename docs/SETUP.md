@@ -23,9 +23,11 @@
 
 | 变量 | 说明 | 生成方式 |
 |------|------|---------|
-| `HMAC_SECRET` | 64 字符签名密钥 | `openssl rand -hex 32` |
-| `ENCRYPTION_KEY` | 32 字符加密密钥 | `openssl rand -hex 16` |
-| `MASTER_PASSWORD_HASH` | 登录密码哈希（推荐） | `echo -n 'pwd' \| openssl dgst -sha256` |
+| `HMAC_SECRET` | 64 字符签名密钥 | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `ENCRYPTION_KEY` | 32 字符加密密钥 | `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"` |
+| `MASTER_PASSWORD_HASH` | 登录密码哈希（推荐） | `node -e "console.log(require('crypto').createHash('sha256').update('你的密码').digest('hex'))"` |
+
+> ⚠️ 填入的是命令**运行后输出的那串十六进制**，不是命令本身。`MASTER_PASSWORD_HASH` 必须是 64 位纯十六进制，不能带 `SHA2-256(stdin)= ` 之类前缀（`openssl dgst` 的默认输出含前缀，故改用上面的 node 命令）。
 
 > 也可直接设置 `MASTER_PASSWORD` 明文（不推荐）。
 

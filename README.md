@@ -28,9 +28,11 @@ Claude Code  →  HTTP Hook  →  Cloudflare Pages Functions  →  Bark  →  iP
 
 | 变量 | 说明 | 生成 |
 |------|------|------|
-| `HMAC_SECRET` | 签名密钥 | `openssl rand -hex 32` |
-| `ENCRYPTION_KEY` | 加密密钥 | `openssl rand -hex 16` |
-| `MASTER_PASSWORD_HASH` | 登录密码 | `echo -n 'pwd' \| openssl dgst -sha256` |
+| `HMAC_SECRET` | 签名密钥 | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `ENCRYPTION_KEY` | 加密密钥 | `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"` |
+| `MASTER_PASSWORD_HASH` | 登录密码的 SHA-256 | `node -e "console.log(require('crypto').createHash('sha256').update('你的密码').digest('hex'))"` |
+
+> 填入的是命令输出的十六进制字符串，不是命令本身。
 
 ### 2. 配置
 
