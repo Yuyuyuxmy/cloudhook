@@ -607,44 +607,83 @@ export function checkIpAccess(ipConfig, ip) {
 // bark — Bark 推送
 // ============================================================================
 
-async function fetchWithTimeout(url, init, timeoutMs = 8000) {
+// 推送重试预算。waitUntil 的 30s 窗口从请求进入时开始计时（不是响应返回后重新计时），
+// 响应约 300ms 返回，故给推送留 25s，其余留给 logEvent 写 KV。
+// 单次 12s：Cloudflare 边缘到 Bark 服务器（腾讯云）路径偶发拥塞，8s 会误杀慢但可成的请求。
+const PUSH_ATTEMPT_TIMEOUT_MS = 12000;
+const PUSH_BUDGET_MS = 25000;
+const PUSH_MAX_ATTEMPTS = 3;
+const PUSH_BACKOFF_MS = [800, 2000];
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function fetchWithTimeout(url, init, timeoutMs = PUSH_ATTEMPT_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try { return await fetch(url, { ...init, signal: controller.signal }); }
   finally { clearTimeout(timer); }
 }
 
-export async function pushBark(barkKey, barkServer = 'https://api.day.app', title, body, options = {}) {
-  if (!barkKey || barkKey === 'YOUR_BARK_KEY') return { success: false, message: 'Bark key not configured' };
-  if (!title || !body) return { success: false, message: 'Title or body missing' };
+// 单次投递。retriable 区分瞬时故障（超时/网络异常/5xx）与确定性失败
+// （无效 key、4xx、Bark 业务错误码）——后者重试只是浪费预算。
+async function pushBarkOnce(endpoint, payload, timeoutMs) {
   try {
-    const server = barkServer.replace(/\/$/, '');
-    const endpoint = `${server}/${encodeURIComponent(barkKey)}`;
-    const payload = { title, body, group: options.group || 'CloudHook', level: options.level || 'timeSensitive' };
-    if (options.sound) payload.sound = options.sound;
-    if (options.icon) payload.icon = options.icon;
-    if (options.url) payload.url = options.url;
     const response = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8', 'User-Agent': 'CloudHook/1.0' },
       body: JSON.stringify(payload)
-    });
+    }, timeoutMs);
     const rawText = await response.text();
-    if (!response.ok) return { success: false, message: `Bark HTTP ${response.status}` };
+    if (!response.ok) {
+      return { success: false, retriable: response.status >= 500, message: `Bark HTTP ${response.status}` };
+    }
     try {
       const result = JSON.parse(rawText);
       if (result.code === 200) return { success: true, message: result.message || 'OK' };
-      return { success: false, message: `Bark code ${result.code}` };
-    } catch { return { success: false, message: 'Non-JSON response' }; }
+      return { success: false, retriable: false, message: `Bark code ${result.code}` };
+    } catch { return { success: false, retriable: false, message: 'Non-JSON response' }; }
   } catch (error) {
-    return { success: false, message: error.name === 'AbortError' ? 'Timeout' : error.message };
+    return { success: false, retriable: true, message: error.name === 'AbortError' ? 'Timeout' : error.message };
   }
+}
+
+export async function pushBark(barkKey, barkServer = 'https://api.day.app', title, body, options = {}) {
+  if (!barkKey || barkKey === 'YOUR_BARK_KEY') return { success: false, message: 'Bark key not configured' };
+  if (!title || !body) return { success: false, message: 'Title or body missing' };
+  const server = barkServer.replace(/\/$/, '');
+  const endpoint = `${server}/${encodeURIComponent(barkKey)}`;
+  const payload = { title, body, group: options.group || 'CloudHook', level: options.level || 'timeSensitive' };
+  if (options.sound) payload.sound = options.sound;
+  if (options.icon) payload.icon = options.icon;
+  if (options.url) payload.url = options.url;
+
+  const maxAttempts = options.maxAttempts || PUSH_MAX_ATTEMPTS;
+  const budget = options.budgetMs || PUSH_BUDGET_MS;
+  const startedAt = Date.now();
+  let attempts = 0;
+  let last = { message: 'push_failed' };
+
+  for (let i = 1; i <= maxAttempts; i++) {
+    const remaining = budget - (Date.now() - startedAt);
+    if (remaining < 1000) break; // 余量不足以完成一次有意义的尝试
+    attempts = i;
+    last = await pushBarkOnce(endpoint, payload, Math.min(PUSH_ATTEMPT_TIMEOUT_MS, remaining));
+    if (last.success) {
+      return i === 1 ? last : { success: true, message: `${last.message} (retry ${i})` };
+    }
+    if (!last.retriable) return { success: false, message: last.message };
+    const backoff = PUSH_BACKOFF_MS[i - 1] || 2000;
+    if (i >= maxAttempts || budget - (Date.now() - startedAt) <= backoff + 1000) break;
+    await sleep(backoff);
+  }
+  return { success: false, message: attempts > 1 ? `${last.message} (${attempts} attempts)` : last.message };
 }
 
 export async function testBarkPush(barkKey, barkServer = 'https://api.day.app') {
   return pushBark(barkKey, barkServer, 'CloudHook 测试',
     'CloudHook Bark 推送测试\n如果你收到这条消息，说明配置正确！',
-    { group: 'CloudHook', level: 'active' });
+    // 测试推送走同步响应，预算收紧避免前端长时间空转
+    { group: 'CloudHook', level: 'active', maxAttempts: 2, budgetMs: 12000 });
 }
 
 // ============================================================================
