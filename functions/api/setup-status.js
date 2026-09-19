@@ -26,7 +26,9 @@ export async function onRequestGet(context) {
 
   return jsonResponse({
     success: true,
-    configured: hasPassword && hasSecret
+    configured: hasPassword && hasSecret,
+    // Site Key 本就随前端页面公开，返回给登录页决定是否渲染 Turnstile widget
+    turnstile_site_key: env.TURNSTILE_SITE_KEY || null
   });
 }
 

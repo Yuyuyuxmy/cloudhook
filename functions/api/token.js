@@ -58,6 +58,39 @@ async function isMasterPasswordValid(env, passwordHashFromClient) {
   return false;
 }
 
+/**
+ * Turnstile 人机验证（siteverify）。
+ * 仅在配置 TURNSTILE_SECRET_KEY 后启用；验证失败或接口不可达一律 fail-closed
+ * ——人机验证是登录闸门，无法确认时不应放行。
+ * siteverify 对有效/无效 token 都返回 HTTP 200，结论只看 body.success。
+ */
+async function verifyTurnstile(secret, token, remoteip) {
+  if (!token || typeof token !== 'string' || token.length > 4096) {
+    return { ok: false, reason: 'missing_turnstile_token' };
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let resp;
+    try {
+      resp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret, response: token, remoteip }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    const data = await resp.json();
+    if (data.success === true) return { ok: true };
+    const codes = Array.isArray(data['error-codes']) ? data['error-codes'].join(',') : '';
+    return { ok: false, reason: codes || 'turnstile_failed' };
+  } catch {
+    return { ok: false, reason: 'turnstile_unreachable' };
+  }
+}
+
 // ============================================================================
 // POST /api/token - 登录并签发 Token
 // ============================================================================
@@ -89,6 +122,18 @@ export async function onRequestPost(context) {
         error: 'Not configured',
         message: 'Server is missing HMAC_SECRET. Set it in the Cloudflare Pages project settings (environment variables).'
       }, 503);
+    }
+
+    // Turnstile 人机验证：先于密码校验，挡住机器人暴力尝试
+    if (env.TURNSTILE_SECRET_KEY) {
+      const verdict = await verifyTurnstile(env.TURNSTILE_SECRET_KEY, body.turnstile_token, getClientIp(request));
+      if (!verdict.ok) {
+        return jsonResponse({
+          error: 'Turnstile verification failed',
+          message: '人机验证未通过，请刷新页面后重试',
+          reason: verdict.reason
+        }, 403);
+      }
     }
 
     // 校验密码

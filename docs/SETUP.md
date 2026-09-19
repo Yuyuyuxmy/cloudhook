@@ -35,6 +35,19 @@
 
 > 仓库刻意不放 `wrangler.toml`：一旦存在该文件，Cloudflare 会以它为唯一事实来源，仪表板中的环境变量与 KV 绑定将变为只读且被文件覆盖。所有配置统一在仪表板管理。
 
+### 可选：Turnstile 人机验证
+
+登录页可挂 Cloudflare Turnstile，挡住机器人对 Master Password 的暴力尝试。在 Dashboard → **Turnstile** 创建站点后，配置两个变量：
+
+| 变量 | 说明 | 类型 |
+|------|------|------|
+| `TURNSTILE_SITE_KEY` | 站点密钥，公开值，由 `/api/setup-status` 下发给前端渲染 widget | 文本 |
+| `TURNSTILE_SECRET_KEY` | 密钥，仅服务端调 siteverify 用，**绝不可进仓库或前端** | 机密 |
+
+两者都配齐才启用：前端拿到 site key 才渲染 widget，后端配了 secret 才校验。只配一个会导致「前端不显示但后端拦截」或「显示了但不校验」，务必成对设置。未配置时登录流程与之前完全一致。
+
+验证失败、siteverify 不可达一律拒绝登录（fail-closed）——人机验证是闸门，无法确认时不放行。
+
 ## 4. 部署与初始化
 
 1. 推送代码触发自动部署（约 1-2 分钟）

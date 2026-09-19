@@ -6,7 +6,7 @@
  * 登录逻辑（预哈希、setup-status 检查、密码显隐）与旧版完全一致，仅改呈现层。
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
@@ -15,6 +15,19 @@ import { login, getSetupStatus } from '@/api/auth';
 import { useToast } from '@/hooks/useToast';
 import Toast from '@/components/Toast';
 import { hashPassword } from '@/utils/passwordHash';
+
+// Turnstile 显式渲染 API（脚本注入后挂在 window 上）
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (el: HTMLElement, opts: Record<string, unknown>) => string;
+      reset: (id?: string) => void;
+      remove: (id?: string) => void;
+    };
+  }
+}
+
+const TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 // 静态背景光斑（rendering-hoist-jsx：无状态依赖，提升到组件外避免重建）
 const backgroundBlobs = (
@@ -45,9 +58,59 @@ export default function Login() {
   // 服务端是否已配置 MASTER_PASSWORD；false 时提示部署者先配置环境变量
   const [configured, setConfigured] = useState<boolean | null>(null);
 
+  // Turnstile：siteKey 由服务端下发，为空表示未启用人机验证
+  const [siteKey, setSiteKey] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileBox = useRef<HTMLDivElement>(null);
+  const widgetId = useRef<string | null>(null);
+
   useEffect(() => {
-    getSetupStatus().then((status) => setConfigured(status.configured));
+    getSetupStatus().then((status) => {
+      setConfigured(status.configured);
+      setSiteKey(status.turnstileSiteKey);
+    });
   }, []);
+
+  // 注入脚本并显式渲染 widget。用 script.onload 而非 turnstile.ready()
+  // ——后者与 defer/async 脚本标签冲突会直接抛 TurnstileError。
+  useEffect(() => {
+    if (!siteKey || !turnstileBox.current) return;
+
+    let cancelled = false;
+
+    const renderWidget = () => {
+      if (cancelled || !window.turnstile || !turnstileBox.current) return;
+      widgetId.current = window.turnstile.render(turnstileBox.current, {
+        sitekey: siteKey,
+        theme: 'light',
+        callback: (token: string) => setTurnstileToken(token),
+        'expired-callback': () => setTurnstileToken(''),
+        'error-callback': () => setTurnstileToken(''),
+      });
+    };
+
+    if (window.turnstile) {
+      renderWidget();
+    } else {
+      let script = document.querySelector<HTMLScriptElement>(`script[src="${TURNSTILE_SCRIPT}"]`);
+      if (!script) {
+        script = document.createElement('script');
+        script.src = TURNSTILE_SCRIPT;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener('load', renderWidget);
+    }
+
+    return () => {
+      cancelled = true;
+      if (widgetId.current && window.turnstile) {
+        window.turnstile.remove(widgetId.current);
+        widgetId.current = null;
+      }
+    };
+  }, [siteKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,13 +120,18 @@ export default function Login() {
       return;
     }
 
+    if (siteKey && !turnstileToken) {
+      error('请先完成人机验证');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       // 前端预哈希密码，防止明文传输
       const passwordHash = await hashPassword(masterPassword);
 
-      const response = await login(passwordHash);
+      const response = await login(passwordHash, turnstileToken || undefined);
       // 无状态签名 token 签发后立即有效，无需等待 KV 同步
       // 存储密码哈希用于后续的写操作验证
       setToken(response.token, passwordHash);
@@ -74,6 +142,11 @@ export default function Login() {
       const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string };
       const message = e.response?.data?.message || e.response?.data?.error || e.message || '登录失败';
       error(message);
+      // Turnstile token 一次性，失败后必须重置，否则重试会撞 timeout-or-duplicate
+      if (widgetId.current && window.turnstile) {
+        window.turnstile.reset(widgetId.current);
+        setTurnstileToken('');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -145,10 +218,13 @@ export default function Login() {
               </button>
             </div>
 
+            {/* Turnstile 人机验证（服务端下发 siteKey 才渲染） */}
+            {siteKey ? <div ref={turnstileBox} className="mt-5 flex justify-center" /> : null}
+
             {/* 登录按钮 */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (!!siteKey && !turnstileToken)}
               className="mt-6 w-full h-12 rounded-xl bg-gray-900 text-white text-sm font-medium tracking-widest shadow-lg shadow-gray-900/15 hover:bg-black hover:shadow-xl hover:shadow-gray-900/20 active:scale-[0.99] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isLoading ? (
